@@ -29,8 +29,14 @@ class MockGeminiSession:
         self.sent_tool_responses.append(function_responses)
 
     async def receive(self) -> AsyncGenerator[Any, None]:
-        for event in self.incoming_events:
-            yield event
+        if self.incoming_events:
+            events = list(self.incoming_events)
+            self.incoming_events.clear()
+            for event in events:
+                yield event
+        else:
+            # Emulate real live websocket awaiting next user speech turn
+            await asyncio.Event().wait()
 
 
 class MockGenAIClient:

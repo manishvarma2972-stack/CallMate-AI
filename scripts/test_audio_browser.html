@@ -249,9 +249,10 @@
         <h2>
           2. Live Audio Stream
           <span id="connStatus" class="status-badge status-disconnected">Disconnected</span>
+          <span id="turnCounterBadge" style="background:#0f172a; color:#38bdf8; border:1px solid #38bdf8; border-radius:12px; padding:2px 8px; font-size:0.75rem; margin-left:6px;">Turns: 0</span>
         </h2>
         <p style="font-size:0.83rem; color:var(--text-muted); margin-bottom: 12px;">
-          Audio pipeline: Inbound 16kHz PCM (Mic) &rarr; Gemini Live &rarr; Outbound 24kHz PCM (Speaker).
+          Multi-turn pipeline: Continuous 16kHz PCM &harr; Gemini Live &harr; 24kHz PCM. One session lasts until you Hang Up.
         </p>
         
         <div class="btn-row">
@@ -326,6 +327,7 @@
     let activeAudioSources = [];
     let isCalling = false;
     let currentSessionData = null;
+    let turnCount = 0;
 
     function log(message, type = 'info') {
       const box = document.getElementById('logBox');
@@ -420,6 +422,9 @@
 
       setStatus("Connecting...", "status-connecting");
       document.getElementById('btnConnect').disabled = true;
+      document.getElementById('btnGetToken').disabled = true;
+      turnCount = 0;
+      document.getElementById('turnCounterBadge').textContent = 'Turns: 0 (Connecting)';
 
       try {
         // 1. Initialize 24kHz Web Audio Output Context for speaker playback
@@ -534,14 +539,19 @@
         const msg = JSON.parse(text);
         if (msg.event === "session_ready") {
           log(`[Gemini 3.8 Live] Voice session established and ready for audio.`, "success");
-          setStatus("In Call", "status-active");
+          setStatus("In Call (Listening)", "status-active");
+          document.getElementById('turnCounterBadge').textContent = 'Turn: 1 (Listening)';
         } else if (msg.event === "transcript") {
           log(`[AI Speech] ${msg.details?.text || ''}`, "log-model");
         } else if (msg.event === "interrupted") {
           log(`[Barge-in] Caller interrupted speaking. Dropped ${msg.details?.dropped_frames || 0} buffered frames.`, "warn");
           flushAudioPlayback();
+          setStatus("In Call (Interrupted - Listening)", "status-active");
         } else if (msg.event === "turn_complete") {
-          log(`[Turn Complete] AI finished speaking. Listening for response...`, "info");
+          turnCount++;
+          document.getElementById('turnCounterBadge').textContent = `Turns: ${turnCount} (Listening for next turn)`;
+          log(`[Turn ${turnCount} Complete] CallMate finished turn. Session remains active — continue speaking anytime...`, "success");
+          setStatus("In Call (Listening)", "status-active");
         } else if (msg.event === "tool_call") {
           log(`[Tool Call] Function invoked: ${msg.details?.name}(${JSON.stringify(msg.details?.args || {})})`, "log-tool");
         } else if (msg.event === "tool_result") {
@@ -570,6 +580,7 @@
       const levelPct = Math.min(100, Math.round(rms * 280));
       document.getElementById('spkFill').style.width = levelPct + "%";
       document.getElementById('spkDb').textContent = levelPct + "%";
+      document.getElementById('turnCounterBadge').textContent = `Turn: ${turnCount + 1} (CallMate Speaking)`;
 
       // Schedule 24kHz single-channel PCM audio buffer
       const buffer = audioPlaybackContext.createBuffer(1, float32.length, 24000);
@@ -647,8 +658,10 @@
       }
       setStatus("Disconnected", "status-disconnected");
       document.getElementById('btnConnect').disabled = false;
+      document.getElementById('btnGetToken').disabled = false;
       document.getElementById('btnDisconnect').disabled = true;
       document.getElementById('btnInterrupt').disabled = true;
+      document.getElementById('turnCounterBadge').textContent = `Completed: ${turnCount} turns`;
       document.getElementById('micFill').style.width = "0%";
       document.getElementById('micDb').textContent = "0%";
       document.getElementById('spkFill').style.width = "0%";

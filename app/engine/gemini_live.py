@@ -132,8 +132,10 @@ class GeminiLiveEngine:
         try:
             while self._is_running:
                 pcm_chunk = await self.bridge.read_inbound_pcm()
-                if not pcm_chunk:
+                if pcm_chunk is None:
                     break
+                if not pcm_chunk:
+                    continue
 
                 # Send 16kHz PCM audio frame to Gemini
                 await session.send_realtime_input(
@@ -150,83 +152,92 @@ class GeminiLiveEngine:
                 raise
 
     async def _outbound_stream_loop(self, session: Any) -> None:
-        """Receive multimodal events from Gemini Live and route to bridge and tool dispatcher."""
+        """Receive multimodal events across multiple conversation turns from Gemini Live."""
         try:
-            async for message in session.receive():
-                if not self._is_running:
-                    break
+            while self._is_running:
+                turn_has_messages = False
+                async for message in session.receive():
+                    if not self._is_running:
+                        break
+                    turn_has_messages = True
 
-                # 1. Process server content (audio, text, interruption, turn boundaries)
-                server_content = getattr(message, "server_content", None)
-                if server_content:
-                    # User barge-in / interruption
-                    if getattr(server_content, "interrupted", False):
-                        await self.bridge.flush_playback_buffers()
+                    # 1. Process server content (audio, text, interruption, turn boundaries)
+                    server_content = getattr(message, "server_content", None)
+                    if server_content:
+                        # User barge-in / interruption
+                        if getattr(server_content, "interrupted", False):
+                            await self.bridge.flush_playback_buffers()
 
-                    # Spoken audio chunks and transcript parts
-                    model_turn = getattr(server_content, "model_turn", None)
-                    if model_turn:
-                        for part in getattr(model_turn, "parts", []):
-                            inline_data = getattr(part, "inline_data", None)
-                            if inline_data and getattr(inline_data, "data", None):
-                                await self.bridge.write_outbound_audio(inline_data.data)
+                        # Spoken audio chunks and transcript parts
+                        model_turn = getattr(server_content, "model_turn", None)
+                        if model_turn:
+                            for part in getattr(model_turn, "parts", []):
+                                inline_data = getattr(part, "inline_data", None)
+                                if inline_data and getattr(inline_data, "data", None):
+                                    await self.bridge.write_outbound_audio(inline_data.data)
 
-                            text = getattr(part, "text", None)
-                            if text:
-                                await self.bridge.record_transcript(text)
+                                text = getattr(part, "text", None)
+                                if text:
+                                    await self.bridge.record_transcript(text)
 
-                    # Turn complete marker
-                    if getattr(server_content, "turn_complete", False):
-                        await self.bridge.mark_turn_complete()
+                        # Turn complete marker (signals end of current AI turn, NOT the session)
+                        if getattr(server_content, "turn_complete", False):
+                            await self.bridge.mark_turn_complete()
 
-                # 2. Process function/tool calls (blocking from Gemini perspective)
-                tool_call = getattr(message, "tool_call", None)
-                if tool_call:
-                    function_calls = getattr(tool_call, "function_calls", [])
-                    function_responses = []
+                    # 2. Process function/tool calls (blocking from Gemini perspective)
+                    tool_call = getattr(message, "tool_call", None)
+                    if tool_call:
+                        function_calls = getattr(tool_call, "function_calls", [])
+                        function_responses = []
 
-                    for call in function_calls:
-                        call_name = getattr(call, "name", "")
-                        call_id = getattr(call, "id", "")
-                        call_args = getattr(call, "args", {}) or {}
+                        for call in function_calls:
+                            call_name = getattr(call, "name", "")
+                            call_id = getattr(call, "id", "")
+                            call_args = getattr(call, "args", {}) or {}
 
-                        logger.info(
-                            "Gemini function call received: name=%s id=%s session_id=%s",
-                            call_name,
-                            call_id,
-                            self.bridge.session_id,
-                        )
-
-                        await self.bridge.send_control_event(
-                            event="tool_call",
-                            action="invoke",
-                            details={"name": call_name, "args": call_args},
-                        )
-
-                        # Execute tool asynchronously without stalling receiver loop
-                        result = await self.tool_dispatcher.execute(
-                            session_id=self.bridge.session_id,
-                            name=call_name,
-                            args=call_args,
-                        )
-
-                        await self.bridge.send_control_event(
-                            event="tool_result",
-                            action="complete",
-                            details={"name": call_name, "result": result},
-                        )
-
-                        function_responses.append(
-                            types.FunctionResponse(
-                                name=call_name,
-                                id=call_id,
-                                response={"result": result},
+                            logger.info(
+                                "Gemini function call received: name=%s id=%s session_id=%s",
+                                call_name,
+                                call_id,
+                                self.bridge.session_id,
                             )
-                        )
 
-                    # Send correlated function responses back to Gemini
-                    if function_responses:
-                        await session.send_tool_response(function_responses=function_responses)
+                            await self.bridge.send_control_event(
+                                event="tool_call",
+                                action="invoke",
+                                details={"name": call_name, "args": call_args},
+                            )
+
+                            # Execute tool asynchronously without stalling receiver loop
+                            result = await self.tool_dispatcher.execute(
+                                session_id=self.bridge.session_id,
+                                name=call_name,
+                                args=call_args,
+                            )
+
+                            await self.bridge.send_control_event(
+                                event="tool_result",
+                                action="complete",
+                                details={"name": call_name, "result": result},
+                            )
+
+                            function_responses.append(
+                                types.FunctionResponse(
+                                    name=call_name,
+                                    id=call_id,
+                                    response={"result": result},
+                                )
+                            )
+
+                        # Send correlated function responses back to Gemini
+                        if function_responses:
+                            await session.send_tool_response(function_responses=function_responses)
+
+                # When session.receive() finishes a turn (turn_complete=True), the loop does NOT exit.
+                # Instead, while self._is_running continues to the next iteration to receive the subsequent turn.
+                if not turn_has_messages and self._is_running:
+                    # Guard against tight loop if custom or mock session returns an empty generator
+                    await asyncio.sleep(0.02)
 
         except asyncio.CancelledError:
             pass

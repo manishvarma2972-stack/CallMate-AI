@@ -80,3 +80,6 @@ Thumbs.db
 # Application logs
 logs/
 *.log
+
+# Development message storage
+data/
