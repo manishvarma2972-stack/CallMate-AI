@@ -32,7 +32,8 @@ class GeminiLiveEngine:
         self.settings = settings or get_settings()
         self.tool_dispatcher = tool_dispatcher or ToolDispatcher()
         self._client = client or genai.Client(
-            api_key=self.settings.GEMINI_API_KEY.get_secret_value()
+            api_key=self.settings.GEMINI_API_KEY.get_secret_value(),
+            http_options=types.HttpOptions(api_version=self.settings.GEMINI_API_VERSION),
         )
         self._inbound_task: Optional[asyncio.Task] = None
         self._outbound_task: Optional[asyncio.Task] = None
@@ -56,6 +57,7 @@ class GeminiLiveEngine:
                 parts=[types.Part.from_text(text=system_instruction_text)]
             ),
             tools=self.tool_dispatcher.get_declarations(),
+            http_options=types.HttpOptions(api_version=self.settings.GEMINI_API_VERSION),
         )
 
     async def run(self) -> None:
@@ -94,10 +96,16 @@ class GeminiLiveEngine:
                 for t in pending:
                     t.cancel()
 
-                # Re-raise exceptions from completed tasks if any
+                # Await pending tasks to cleanly consume cancellation and avoid unretrieved exceptions
+                if pending:
+                    await asyncio.gather(*pending, return_exceptions=True)
+
+                # Re-raise exceptions from completed tasks if any occurred during active operation
                 for t in done:
                     if not t.cancelled() and t.exception():
-                        raise t.exception()
+                        exc = t.exception()
+                        if self._is_running and "1000" not in str(exc):
+                            raise exc
 
         except asyncio.CancelledError:
             logger.info("Gemini Live session cancelled: session_id=%s", self.bridge.session_id)
@@ -107,6 +115,16 @@ class GeminiLiveEngine:
         finally:
             self._is_running = False
             self.bridge.close()
+            # Ensure subtasks are cancelled and awaited to avoid unretrieved exceptions
+            for t in (self._inbound_task, self._outbound_task):
+                if t and not t.done():
+                    t.cancel()
+                    try:
+                        await t
+                    except (asyncio.CancelledError, Exception):
+                        pass
+                elif t and t.done():
+                    _ = t.exception()
             logger.info("Gemini Live session closed: session_id=%s", self.bridge.session_id)
 
     async def _inbound_stream_loop(self, session: Any) -> None:
@@ -127,8 +145,9 @@ class GeminiLiveEngine:
         except asyncio.CancelledError:
             pass
         except Exception as exc:
-            logger.error("Inbound audio streaming failed: session_id=%s error=%s", self.bridge.session_id, str(exc))
-            raise
+            if self._is_running:
+                logger.error("Inbound audio streaming failed: session_id=%s error=%s", self.bridge.session_id, str(exc))
+                raise
 
     async def _outbound_stream_loop(self, session: Any) -> None:
         """Receive multimodal events from Gemini Live and route to bridge and tool dispatcher."""
@@ -212,8 +231,9 @@ class GeminiLiveEngine:
         except asyncio.CancelledError:
             pass
         except Exception as exc:
-            logger.error("Outbound event loop failed: session_id=%s error=%s", self.bridge.session_id, str(exc))
-            raise
+            if self._is_running and "1000" not in str(exc):
+                logger.error("Outbound event loop failed: session_id=%s error=%s", self.bridge.session_id, str(exc))
+                raise
 
     def stop(self) -> None:
         """Signal tasks to terminate."""

@@ -50,6 +50,7 @@ async def run_live_verification() -> None:
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     owner_name = os.getenv("RECEPTIONIST_OWNER_NAME", "").strip()
     model_id = os.getenv("GEMINI_MODEL", "gemini-3.8-live").strip()
+    api_version = os.getenv("GEMINI_API_VERSION", "v1alpha").strip()
     voice_name = os.getenv("GEMINI_VOICE_NAME", "Aoede").strip()
     owner_api_key = os.getenv("OWNER_API_KEY", "").strip()
     secret_key = os.getenv("SECRET_KEY", "").strip()
@@ -57,6 +58,7 @@ async def run_live_verification() -> None:
     print(f"[*] Project Root:          {PROJECT_ROOT}")
     print(f"[*] RECEPTIONIST_OWNER_NAME: {owner_name if owner_name else '[MISSING — Voice sessions blocked]'}")
     print(f"[*] GEMINI_MODEL:          {model_id}")
+    print(f"[*] GEMINI_API_VERSION:    {api_version}")
     print(f"[*] GEMINI_VOICE_NAME:     {voice_name}")
     print(f"[*] OWNER_API_KEY:         {mask_secret(owner_api_key)}")
     print(f"[*] SECRET_KEY:            {mask_secret(secret_key)}")
@@ -89,6 +91,7 @@ async def run_live_verification() -> None:
         GEMINI_API_KEY=SecretStr(api_key),
         RECEPTIONIST_OWNER_NAME=owner_name,
         GEMINI_MODEL=model_id,
+        GEMINI_API_VERSION=api_version,
         GEMINI_VOICE_NAME=voice_name,
         OWNER_API_KEY=SecretStr(owner_api_key) if owner_api_key else SecretStr("dev-owner-key"),
         SECRET_KEY=SecretStr(secret_key) if secret_key else SecretStr("dev-secret-key-32-bytes-minimum-length!"),
@@ -101,8 +104,27 @@ async def run_live_verification() -> None:
     engine_task = asyncio.create_task(engine.run(), name="live_gemini_engine")
 
     try:
-        # Wait for session handshake
-        event = await asyncio.wait_for(bridge.control_queue.get(), timeout=15.0)
+        # Wait concurrently for session handshake or engine failure
+        control_waiter = asyncio.create_task(bridge.control_queue.get())
+        done, pending = await asyncio.wait(
+            [control_waiter, engine_task],
+            return_when=asyncio.FIRST_COMPLETED,
+            timeout=15.0,
+        )
+
+        for task in pending:
+            task.cancel()
+
+        if not done:
+            raise TimeoutError("Connection handshake timed out waiting for Gemini 3.8 Live.")
+
+        if engine_task in done:
+            exc = engine_task.exception()
+            if exc:
+                raise exc
+            raise RuntimeError("Gemini Live engine terminated before completing handshake.")
+
+        event = control_waiter.result()
         print(f"[Stage 1 SUCCESS] Bidirectional Live Session Handshake Complete!")
         print(f"    Event: {event}")
 
@@ -142,7 +164,7 @@ async def run_live_verification() -> None:
         print("  2. Open the test client in scripts/test_audio_browser.html")
         print("=" * 65)
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         print("\n[ERROR] Connection handshake timed out waiting for Gemini 3.8 Live.")
         print("Check network connectivity and verify that GEMINI_API_KEY has access to gemini-3.8-live.")
         sys.exit(1)
@@ -153,9 +175,15 @@ async def run_live_verification() -> None:
         print("\nShutting down live session...")
         engine.stop()
         bridge.close()
-        await asyncio.sleep(0.5)
         if not engine_task.done():
             engine_task.cancel()
+            try:
+                await engine_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        else:
+            # Explicitly consume exception so asyncio does not log 'Task exception was never retrieved'
+            _ = engine_task.exception()
         print("Clean shutdown complete.")
 
 

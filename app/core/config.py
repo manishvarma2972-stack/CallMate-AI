@@ -81,6 +81,10 @@ class Settings(BaseSettings):
         default="gemini-3.8-live",
         description="Verified Gemini Live model identifier",
     )
+    GEMINI_API_VERSION: str = Field(
+        default="v1alpha",
+        description="API version required for Gemini Live bidirectional WebSocket streaming (v1alpha)",
+    )
     GEMINI_VOICE_NAME: str = Field(
         default="Aoede",
         description="Prebuilt voice persona (Aoede, Kore, Puck, Charon, Fenrir)",
