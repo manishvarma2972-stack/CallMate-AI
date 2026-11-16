@@ -2,6 +2,7 @@
 
 import asyncio
 import hmac
+import json
 import logging
 from typing import Optional
 from fastapi import (
@@ -100,7 +101,7 @@ async def voice_stream_websocket(
     engine_task = asyncio.create_task(engine.run(), name=f"engine_{session_id}")
 
     async def _client_to_bridge() -> None:
-        """Receive binary PCM audio from client WebSocket and feed into bridge."""
+        """Receive binary PCM audio and control signaling from client WebSocket."""
         try:
             while True:
                 message = await websocket.receive()
@@ -110,6 +111,14 @@ async def voice_stream_websocket(
                     frames = audio_processor.process_inbound_bytes(raw_chunk)
                     for frame in frames:
                         await bridge.push_inbound_pcm(frame)
+                elif "text" in message and message["text"]:
+                    # Handle client out-of-band commands (e.g. barge-in / manual interruption)
+                    try:
+                        cmd = json.loads(message["text"])
+                        if cmd.get("type") in ("barge_in", "interrupt"):
+                            await bridge.flush_playback_buffers()
+                    except (json.JSONDecodeError, AttributeError):
+                        pass
                 elif message.get("type") == "websocket.disconnect":
                     break
         except (WebSocketDisconnect, asyncio.CancelledError):

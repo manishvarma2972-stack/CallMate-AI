@@ -178,11 +178,23 @@ class GeminiLiveEngine:
                             self.bridge.session_id,
                         )
 
+                        await self.bridge.send_control_event(
+                            event="tool_call",
+                            action="invoke",
+                            details={"name": call_name, "args": call_args},
+                        )
+
                         # Execute tool asynchronously without stalling receiver loop
                         result = await self.tool_dispatcher.execute(
                             session_id=self.bridge.session_id,
                             name=call_name,
                             args=call_args,
+                        )
+
+                        await self.bridge.send_control_event(
+                            event="tool_result",
+                            action="complete",
+                            details={"name": call_name, "result": result},
                         )
 
                         function_responses.append(

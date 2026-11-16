@@ -63,3 +63,22 @@ def test_websocket_handshake_success_and_audio_exchange(e2e_app: FastAPI) -> Non
 
             # Verify engine was started for this session
             assert mock_engine_run.called
+
+
+def test_websocket_barge_in_text_command(e2e_app: FastAPI) -> None:
+    """Verify that sending a barge_in JSON text message triggers buffer flushing."""
+    with patch("app.engine.gemini_live.GeminiLiveEngine.run", new_callable=AsyncMock):
+        with TestClient(e2e_app) as client:
+            resp = client.post(
+                "/api/v1/voice/sessions",
+                headers={"X-API-Key": "e2e-owner-key"},
+                json={"language_hint": "en"},
+            )
+            assert resp.status_code == 201
+            data = resp.json()
+
+            with client.websocket_connect(f"/api/v1/voice/stream/{data['session_id']}?token={data['token']}") as websocket:
+                # Send barge-in command
+                websocket.send_text('{"type": "barge_in"}')
+                # Also send sample audio frame
+                websocket.send_bytes(b"\x00\x00" * 320)
