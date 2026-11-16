@@ -15,7 +15,6 @@ from app.core.logging import request_id_ctx
 
 logger = logging.getLogger("app.errors")
 
-
 # HTTP 422 status code (RFC 9110: Unprocessable Content)
 HTTP_422_CODE: int = getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", 422)
 
@@ -73,6 +72,114 @@ class ServiceUnavailableError(AppException):
         )
 
 
+# ==============================================================================
+# Phase 2 Voice & Session Security Exceptions
+# ==============================================================================
+
+class OwnerNotConfiguredError(AppException):
+    """Voice session requested without owner display name configured (HTTP 412)."""
+
+    def __init__(
+        self,
+        message: str = "RECEPTIONIST_OWNER_NAME must be configured before voice sessions can be created.",
+    ) -> None:
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            error_code="OWNER_NOT_CONFIGURED",
+        )
+
+
+class VoiceAuthenticationError(AppException):
+    """Invalid or missing owner API key (HTTP 401)."""
+
+    def __init__(self, message: str = "Invalid or missing owner API key") -> None:
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            error_code="UNAUTHORIZED",
+        )
+
+
+class InvalidTokenError(AppException):
+    """Session token is invalid, signature mismatch, or expired (HTTP 403)."""
+
+    def __init__(self, message: str = "Invalid or expired session token") -> None:
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_403_FORBIDDEN,
+            error_code="INVALID_TOKEN",
+        )
+
+
+class TokenAlreadyUsedError(AppException):
+    """Session token replay attempt (HTTP 403 / 409)."""
+
+    def __init__(self, message: str = "Session token has already been consumed") -> None:
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_403_FORBIDDEN,
+            error_code="TOKEN_ALREADY_USED",
+        )
+
+
+class SessionCapacityExceededError(AppException):
+    """Maximum concurrent voice sessions reached (HTTP 503)."""
+
+    def __init__(self, message: str = "Maximum concurrent voice sessions reached") -> None:
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            error_code="SESSION_CAPACITY_EXCEEDED",
+        )
+
+
+class RateLimitExceededError(AppException):
+    """Client exceeded session provisioning rate limit (HTTP 429)."""
+
+    def __init__(self, message: str = "Too many session creation requests. Please wait before retrying.") -> None:
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            error_code="RATE_LIMIT_EXCEEDED",
+        )
+
+
+class InvalidSessionIdError(AppException):
+    """Session ID violates UUIDv4 format (HTTP 400)."""
+
+    def __init__(self, message: str = "Session ID must be a valid UUIDv4 string") -> None:
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code="INVALID_SESSION_ID",
+        )
+
+
+class SessionNotFoundError(NotFoundError):
+    """Voice session not found or expired (HTTP 404)."""
+
+    def __init__(self, message: str = "Voice session not found or expired") -> None:
+        super().__init__(message=message)
+        self.error_code = "SESSION_NOT_FOUND"
+
+
+class GeminiLiveError(AppException):
+    """Upstream Gemini Live API connection failure or protocol error (HTTP 502)."""
+
+    def __init__(self, message: str = "Gemini Live API service communication error", details: Optional[Any] = None) -> None:
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            error_code="GEMINI_LIVE_ERROR",
+            details=details,
+        )
+
+
+# ==============================================================================
+# Envelope Construction & Exception Handlers
+# ==============================================================================
+
 def build_error_envelope(
     code: str,
     message: str,
@@ -116,6 +223,7 @@ async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPE
         status.HTTP_401_UNAUTHORIZED: "UNAUTHORIZED",
         status.HTTP_403_FORBIDDEN: "FORBIDDEN",
         status.HTTP_405_METHOD_NOT_ALLOWED: "METHOD_NOT_ALLOWED",
+        status.HTTP_429_TOO_MANY_REQUESTS: "RATE_LIMIT_EXCEEDED",
     }
     error_code = code_map.get(exc.status_code, "HTTP_ERROR")
 

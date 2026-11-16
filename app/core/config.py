@@ -6,8 +6,8 @@ Provides type-safe environment variable parsing, validation, and defaults.
 from enum import Enum
 from functools import lru_cache
 import json
-from typing import Any, List, Literal
-from pydantic import Field, field_validator
+from typing import Any, List, Literal, Optional
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     # Application Information
     APP_NAME: str = Field(default="CallMate AI", description="Human-readable application name")
-    APP_VERSION: str = Field(default="0.1.0", description="Semantic application version")
+    APP_VERSION: str = Field(default="0.2.0", description="Semantic application version")
     ENVIRONMENT: Environment = Field(
         default=Environment.DEVELOPMENT,
         description="Target deployment environment",
@@ -52,6 +52,68 @@ class Settings(BaseSettings):
     LOG_FORMAT: Literal["console", "json"] = Field(
         default="console",
         description="Logging output format (console for local dev, json for structured cloud)",
+    )
+
+    # Security & Owner Settings (Phase 2)
+    SECRET_KEY: SecretStr = Field(
+        default=SecretStr("dev-insecure-secret-key-32-bytes-minimum-length!"),
+        description="Cryptographic key for signing session tokens",
+    )
+    OWNER_API_KEY: SecretStr = Field(
+        default=SecretStr("dev-owner-secret-key"),
+        description="Owner API key required to create voice sessions",
+    )
+    RECEPTIONIST_OWNER_NAME: Optional[str] = Field(
+        default=None,
+        description="Owner display name (Must be configured before voice sessions can be created)",
+    )
+    RECEPTIONIST_NAME: str = Field(
+        default="CallMate",
+        description="Display name of the AI receptionist",
+    )
+
+    # Gemini Live Voice Engine Settings (Phase 2)
+    GEMINI_API_KEY: SecretStr = Field(
+        default=SecretStr(""),
+        description="Google Gemini Live API Key",
+    )
+    GEMINI_MODEL: str = Field(
+        default="gemini-3.8-live",
+        description="Verified Gemini Live model identifier",
+    )
+    GEMINI_VOICE_NAME: str = Field(
+        default="Aoede",
+        description="Prebuilt voice persona (Aoede, Kore, Puck, Charon, Fenrir)",
+    )
+    GEMINI_TEMPERATURE: float = Field(
+        default=0.6,
+        ge=0.0,
+        le=1.0,
+        description="Model generation temperature",
+    )
+
+    # Voice Session & Storage Limits (Phase 2 Development In-Memory)
+    MAX_ACTIVE_VOICE_SESSIONS: int = Field(
+        default=25,
+        ge=1,
+        le=100,
+        description="Maximum concurrent voice sessions permitted",
+    )
+    SESSION_TOKEN_TTL_SECONDS: int = Field(
+        default=300,
+        ge=30,
+        le=3600,
+        description="Validity duration of generated session tokens in seconds",
+    )
+    SESSION_RATE_LIMIT_PER_MINUTE: int = Field(
+        default=10,
+        ge=1,
+        le=1000,
+        description="Maximum session creation requests per client per minute",
+    )
+    MESSAGE_STORAGE_PATH: str = Field(
+        default="data/messages",
+        description="Local directory for development JSON message storage",
     )
 
     # Security & CORS
@@ -99,6 +161,11 @@ class Settings(BaseSettings):
     def is_testing(self) -> bool:
         """Check if current environment is test."""
         return self.ENVIRONMENT == Environment.TEST
+
+    @property
+    def is_owner_configured(self) -> bool:
+        """Check whether an owner display name has been explicitly provided."""
+        return bool(self.RECEPTIONIST_OWNER_NAME and self.RECEPTIONIST_OWNER_NAME.strip())
 
 
 @lru_cache

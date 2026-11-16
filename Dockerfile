@@ -29,8 +29,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application source code
 COPY app ./app
 
-# Set non-root ownership on application directory
-RUN chown -R appuser:appgroup /app
+# Create persistent storage directory for development message persistence
+RUN mkdir -p /app/data/messages && \
+    chown -R appuser:appgroup /app
+
+# Volume mount point for persistent message storage
+VOLUME ["/app/data/messages"]
 
 # Switch to non-root application user
 USER appuser
