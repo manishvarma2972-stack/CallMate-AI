@@ -1,5 +1,6 @@
 # CallMate AI — Personal Voice Receptionist
 
+[![CI](https://github.com/manishvarma2972-stack/CallMate-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/manishvarma2972-stack/CallMate-AI/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Google Gemini Live](https://img.shields.io/badge/Gemini%20Live-gemini--3.8--live-8E75B2?style=flat&logo=google&logoColor=white)](https://ai.google.dev/)

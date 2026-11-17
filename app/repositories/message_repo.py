@@ -7,6 +7,8 @@ IMPORTANT: This JSON file persistence is for Phase 2 local development only.
 PostgreSQL migration is required before real production telephone calls are accepted.
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from functools import lru_cache
 import json
@@ -15,7 +17,7 @@ import os
 from pathlib import Path
 import re
 import tempfile
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 import uuid
 
 from app.core.config import get_settings
