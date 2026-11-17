@@ -94,3 +94,46 @@ def test_serve_static_index_and_assets(client: TestClient) -> None:
         mod_res = client.get(f"/static/js/{mod}")
         assert mod_res.status_code == 200, f"Module {mod} failed to load"
         assert len(mod_res.text) > 50, f"Module {mod} content too short"
+
+
+def test_anonymous_production_visitor_cannot_obtain_owner_session(tmp_path: Path) -> None:
+    """Verify that in production mode, visiting GET / does NOT auto-grant owner session cookies."""
+    from app.core.config import Environment
+    from pydantic import SecretStr
+
+    prod_settings = Settings(
+        ENVIRONMENT=Environment.PRODUCTION,
+        RECEPTIONIST_OWNER_NAME="Manish Varma",
+        RECEPTIONIST_NAME="CallMate",
+        MESSAGE_STORAGE_PATH=str(tmp_path / "messages"),
+        OWNER_API_KEY=SecretStr("super-secret-prod-owner-key-12345"),
+        SECRET_KEY=SecretStr("32-bytes-minimum-length-production-secret-key!"),
+    )
+    prod_app = create_app(settings=prod_settings)
+    prod_client = TestClient(prod_app, base_url="https://testserver")
+
+    # 1. Anonymous visitor hits root homepage
+    home_res = prod_client.get("/")
+    assert home_res.status_code == 200
+    # Confirm NO owner session cookie was granted to anonymous visitor
+    assert "callmate_owner_session" not in prod_client.cookies
+
+    # 2. Anonymous visitor attempts to provision voice session
+    voice_res = prod_client.post("/api/v1/voice/sessions", json={"language_hint": "en"})
+    assert voice_res.status_code == 401
+    assert voice_res.json()["error"]["code"] == "UNAUTHORIZED"
+
+    # 3. Proper owner login with OWNER_API_KEY succeeds and sets secure cookie
+    login_res = prod_client.post(
+        "/api/v1/auth/session",
+        json={"api_key": "super-secret-prod-owner-key-12345"},
+    )
+    assert login_res.status_code == 200
+    assert login_res.json()["authenticated"] is True
+    assert "callmate_owner_session" in prod_client.cookies
+
+    # 4. Now voice session provisioning succeeds
+    auth_voice_res = prod_client.post("/api/v1/voice/sessions", json={"language_hint": "en"})
+    assert auth_voice_res.status_code == 201
+    assert auth_voice_res.json()["owner_name"] == "Manish Varma"
+

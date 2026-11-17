@@ -31,6 +31,38 @@ class ApiClient {
     }
   }
 
+  async loginOwner(apiKey) {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/v1/auth/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ api_key: apiKey })
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.error?.message || payload.detail || `Login HTTP ${res.status}`);
+      }
+      return await res.json();
+    } catch (err) {
+      console.error('Owner login failed:', err);
+      throw err;
+    }
+  }
+
+  async logoutOwner() {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/v1/auth/session`, {
+        method: 'DELETE',
+        credentials: 'same-origin'
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('Owner logout failed:', err);
+      return false;
+    }
+  }
+
   async getAssistantConfig() {
     try {
       const res = await fetch(`${this.baseUrl}/api/v1/assistant/config`);

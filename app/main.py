@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.endpoints.health import check_health
 from app.api.v1.router import api_router
-from app.core.config import Settings, get_settings
+from app.core.config import Environment, Settings, get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import setup_logging
 from app.core.middleware import RequestCorrelationMiddleware
@@ -105,21 +105,28 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             if not index_path.exists():
                 return Response(status_code=status.HTTP_404_NOT_FOUND)
             response = FileResponse(str(index_path))
-            # Securely provision HttpOnly owner session cookie for same-origin browser client
-            if not hasattr(request.app.state, "session_manager"):
-                request.app.state.session_manager = VoiceSessionManager(settings=request.app.state.settings)
-            session_mgr: VoiceSessionManager = request.app.state.session_manager
-            existing_cookie = request.cookies.get("callmate_owner_session")
-            if not existing_cookie or not session_mgr.verify_owner_session_token(existing_cookie):
-                owner_token = session_mgr.create_owner_session_token()
-                response.set_cookie(
-                    key="callmate_owner_session",
-                    value=owner_token,
-                    httponly=True,
-                    samesite="lax",
-                    max_age=86400,
-                    path="/",
-                )
+            # In DEVELOPMENT and TEST modes on loopback only, auto-provision session cookie for developer convenience
+            active_settings: Settings = request.app.state.settings
+            client_host = request.client.host if request.client else ""
+            if (
+                active_settings.ENVIRONMENT in (Environment.DEVELOPMENT, Environment.TEST)
+                and client_host in ("127.0.0.1", "::1", "localhost", "testclient")
+            ):
+                if not hasattr(request.app.state, "session_manager"):
+                    request.app.state.session_manager = VoiceSessionManager(settings=active_settings)
+                session_mgr: VoiceSessionManager = request.app.state.session_manager
+                existing_cookie = request.cookies.get("callmate_owner_session")
+                if not existing_cookie or not session_mgr.verify_owner_session_token(existing_cookie):
+                    owner_token = session_mgr.create_owner_session_token()
+                    response.set_cookie(
+                        key="callmate_owner_session",
+                        value=owner_token,
+                        httponly=True,
+                        secure=active_settings.is_production,
+                        samesite="lax",
+                        max_age=86400,
+                        path="/",
+                    )
             return response
 
     # Development Verification Console (/dev/audio-test)
@@ -128,20 +135,27 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         @app.api_route("/dev/audio-test", methods=["GET", "HEAD"], include_in_schema=False)
         async def serve_dev_test(request: Request) -> Response:
             response = FileResponse(str(scripts_test_html))
-            if not hasattr(request.app.state, "session_manager"):
-                request.app.state.session_manager = VoiceSessionManager(settings=request.app.state.settings)
-            session_mgr: VoiceSessionManager = request.app.state.session_manager
-            existing_cookie = request.cookies.get("callmate_owner_session")
-            if not existing_cookie or not session_mgr.verify_owner_session_token(existing_cookie):
-                owner_token = session_mgr.create_owner_session_token()
-                response.set_cookie(
-                    key="callmate_owner_session",
-                    value=owner_token,
-                    httponly=True,
-                    samesite="lax",
-                    max_age=86400,
-                    path="/",
-                )
+            active_settings: Settings = request.app.state.settings
+            client_host = request.client.host if request.client else ""
+            if (
+                active_settings.ENVIRONMENT in (Environment.DEVELOPMENT, Environment.TEST)
+                and client_host in ("127.0.0.1", "::1", "localhost", "testclient")
+            ):
+                if not hasattr(request.app.state, "session_manager"):
+                    request.app.state.session_manager = VoiceSessionManager(settings=active_settings)
+                session_mgr: VoiceSessionManager = request.app.state.session_manager
+                existing_cookie = request.cookies.get("callmate_owner_session")
+                if not existing_cookie or not session_mgr.verify_owner_session_token(existing_cookie):
+                    owner_token = session_mgr.create_owner_session_token()
+                    response.set_cookie(
+                        key="callmate_owner_session",
+                        value=owner_token,
+                        httponly=True,
+                        secure=active_settings.is_production,
+                        samesite="lax",
+                        max_age=86400,
+                        path="/",
+                    )
             return response
 
     return app

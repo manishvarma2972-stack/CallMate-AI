@@ -88,13 +88,30 @@ class SettingsScreen {
 
           <div class="form-group">
             <label class="form-label">Voice Session Authorization</label>
-            <div style="display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--bg-elevated); border-radius:var(--radius-md); border:1px solid var(--border-subtle);">
-              <span class="status-indicator-dot"></span>
-              <div>
-                <div style="font-size:0.85rem; font-weight:600; color:var(--text-primary);">First-Party Secure HttpOnly Session Active</div>
-                <div style="font-size:0.75rem; color:var(--text-muted);">Cryptographically signed session cookie — credentials are never exposed in browser storage.</div>
+            ${appState.ownerAuthenticated ? `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:var(--bg-elevated); border-radius:var(--radius-md); border:1px solid var(--border-subtle);">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="status-indicator-dot" style="background:var(--success);"></span>
+                  <div>
+                    <div style="font-size:0.85rem; font-weight:600; color:var(--text-primary);">Owner Session Authenticated (HttpOnly Cookie)</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted);">Protected by HMAC-SHA256 token and HTTPS Secure flag.</div>
+                  </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="settingsScreen.logoutOwner()">Logout</button>
               </div>
-            </div>
+            ` : `
+              <div style="padding:12px; background:var(--bg-elevated); border-radius:var(--radius-md); border:1px solid var(--border-subtle);">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                  <span class="status-indicator-dot" style="background:var(--warning);"></span>
+                  <span style="font-size:0.85rem; font-weight:600; color:var(--warning);">Unauthenticated Visitor</span>
+                </div>
+                <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:10px;">Enter your Owner API Key to authenticate and access voice session provisioning.</p>
+                <div style="display:flex; gap:8px;">
+                  <input type="password" class="form-input" id="ownerApiKeyInput" placeholder="Enter OWNER_API_KEY">
+                  <button class="btn btn-primary btn-sm" onclick="settingsScreen.loginOwner()">Login</button>
+                </div>
+              </div>
+            `}
           </div>
 
           <div class="form-group">
@@ -199,6 +216,34 @@ class SettingsScreen {
         </div>
       </div>
     `;
+  }
+
+  async loginOwner() {
+    const keyInput = document.getElementById('ownerApiKeyInput');
+    const key = keyInput ? keyInput.value.trim() : '';
+    if (!key) {
+      appUI.showToast('warning', 'API Key Required', 'Please enter your Owner API Key.');
+      return;
+    }
+    try {
+      const res = await apiClient.loginOwner(key);
+      appUI.showToast('success', 'Authenticated', `Welcome, ${res.owner_name || 'Owner'}. Voice sessions unlocked.`);
+      appState.ownerAuthenticated = true;
+      this.render();
+    } catch (err) {
+      appUI.showToast('danger', 'Login Failed', err.message || 'Invalid Owner API Key.');
+    }
+  }
+
+  async logoutOwner() {
+    try {
+      await apiClient.logoutOwner();
+      appUI.showToast('info', 'Logged Out', 'Owner session cleared.');
+      appState.ownerAuthenticated = false;
+      this.render();
+    } catch (err) {
+      appUI.showToast('danger', 'Logout Failed', err.message);
+    }
   }
 
   verifyCarrierForwarding() {

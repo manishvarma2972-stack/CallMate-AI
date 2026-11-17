@@ -48,9 +48,14 @@ class AppMain {
     try {
       const authStatus = await apiClient.checkAuthSession();
       if (authStatus && authStatus.authenticated) {
+        appState.ownerAuthenticated = true;
         console.log(`CallMate session active (${authStatus.auth_method || 'authenticated'}).`);
+      } else {
+        appState.ownerAuthenticated = false;
       }
-    } catch {}
+    } catch {
+      appState.ownerAuthenticated = false;
+    }
 
     // A. Fetch live health probe
     try {
