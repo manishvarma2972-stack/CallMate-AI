@@ -1,10 +1,42 @@
 # CallMate AI — Personal Voice Receptionist
 
+[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Google Gemini Live](https://img.shields.io/badge/Gemini%20Live-gemini--3.8--live-8E75B2?style=flat&logo=google&logoColor=white)](https://ai.google.dev/)
+[![Automated Tests](https://img.shields.io/badge/Tests-58%20Passed-success?style=flat&logo=pytest&logoColor=white)](tests/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Deploy to Render](https://img.shields.io/badge/Deploy-Render-46E3B7?style=flat&logo=render&logoColor=black)](https://render.com)
+
 CallMate AI is a production-quality personal voice receptionist designed to receive incoming telephone calls, converse naturally with callers in English and Telugu using Google Gemini Live, screen inquiries, take caller messages, and integrate into cloud environments.
 
 ---
 
-## Architecture & Phased Roadmap
+## 🏗️ Architecture & Phased Roadmap
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Caller as 📞 Caller / Audio Stream
+    participant WS as ⚡ FastAPI WebSocket
+    participant Sec as 🛡️ VoiceSessionManager
+    participant Bridge as 🔄 AudioStreamBridge
+    participant Gem as 🤖 Google Gemini Live
+    participant Tool as 📝 TakeMessage Tool
+
+    Caller->>WS: Connect WebSocket (HMAC Session Token)
+    WS->>Sec: Validate HMAC, Single-Use & Expiry
+    Sec-->>WS: Authorized Session
+    WS->>Gem: Establish Bidirectional Live Session (v1alpha)
+    Caller->>Bridge: Stream Inbound PCM (16kHz, 16-bit Mono)
+    Bridge->>Gem: Forward Inbound Chunks
+    Gem-->>Bridge: Synthesized Audio PCM (24kHz Mono)
+    Bridge-->>Caller: Stream Audio Response
+    Note over Caller,Gem: Interruption Barge-in: Discard queue & notify client
+    Gem->>Tool: Execute Function Call (take_message)
+    Tool->>Tool: Atomic write to data/messages (0o600)
+    Tool-->>Gem: Tool Output Confirmed
+    Gem-->>Caller: "I've taken your message for Manish."
+```
 
 - **Phase 1: Backend Foundation (Complete)**: FastAPI core, structured logging, Pydantic Settings, real-time health telemetry, standardized error handling, Dockerization.
 - **Phase 2: Gemini Live Voice Engine (Complete)**: Bilingual English & Telugu voice engine using `gemini-3.8-live` and `google-genai==3.3.0`, transport-agnostic `AudioStreamBridge`, session authentication with HMAC-SHA256 tokens, race-free single-use replay protection, VAD barge-in interruption handling, collision-safe atomic message persistence, and non-blocking blocking-mode tool execution.
