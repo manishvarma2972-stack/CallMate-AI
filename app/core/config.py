@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     )
     RECEPTIONIST_NAME: str = Field(
         default="CallMate",
-        description="Display name of the AI receptionist",
+        description="Display name of the AI caller assistant",
     )
 
     # Gemini Live Voice Engine Settings (Phase 2)

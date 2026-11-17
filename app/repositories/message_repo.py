@@ -125,6 +125,36 @@ class MessageRepository:
         with open(target_path, "r", encoding="utf-8") as f:
             return json.load(f)
 
+    def list_messages(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """List stored caller messages ordered by recorded_at descending."""
+        messages: List[Dict[str, Any]] = []
+        if not self._storage_dir.exists():
+            return messages
+
+        for file_path in self._storage_dir.glob("msg_*.json"):
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    messages.append(data)
+            except Exception:
+                continue
+
+        messages.sort(key=lambda m: m.get("recorded_at", ""), reverse=True)
+        return messages[:limit]
+
+    def delete_message(self, message_id: str) -> bool:
+        """Safely delete a stored message by ID."""
+        if not re.match(r"^msg_[0-9a-f]{32}$", message_id):
+            return False
+        target_path = self._storage_dir / f"{message_id}.json"
+        if target_path.exists():
+            try:
+                target_path.unlink()
+                return True
+            except OSError:
+                return False
+        return False
+
 
 @lru_cache
 def get_message_repository() -> MessageRepository:

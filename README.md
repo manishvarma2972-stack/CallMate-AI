@@ -188,3 +188,39 @@ ws://localhost:8000/api/v1/voice/stream/{session_id}?token={token}
 - Interruption: On caller barge-in, the server flushes outbound audio buffers and sends a control event:
   `{"type": "control", "event": "interrupted", "action": "flush_buffer"}`.
 - Function Calling: The `take_message` tool persists caller messages atomically to `/app/data/messages/` with restricted permissions (`0o600`) and structured output.
+
+---
+
+## Deploy to Render
+
+Deploy CallMate AI instantly to Render using the Blueprint button or manual configuration:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/manishvarma2972-stack/CallMate-AI)
+
+### Option A: Render Blueprint (Recommended)
+1. Open [Render Dashboard](https://dashboard.render.com).
+2. Click **New +** &rarr; **Blueprint**.
+3. Connect your repository: `manishvarma2972-stack/CallMate-AI`.
+4. Render automatically detects `render.yaml`:
+   - Configures Python 3.12 environment, dependencies, and dynamic `$PORT` routing.
+   - Generates cryptographically secure values for `SECRET_KEY` and `OWNER_API_KEY`.
+5. Enter your `GEMINI_API_KEY` when prompted and click **Apply**.
+
+### Option B: Manual Web Service
+1. In Render, select **New +** &rarr; **Web Service**.
+2. Connect `https://github.com/manishvarma2972-stack/CallMate-AI`.
+3. Set the build and runtime settings:
+   - **Runtime**: Python 3
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+   - **Health Check Path**: `/health`
+4. Configure required Environment Variables in Render:
+   - `RECEPTIONIST_OWNER_NAME`: `Manish Varma`
+   - `GEMINI_API_KEY`: `<Your Gemini API Key>`
+   - `SECRET_KEY`: `<Generated 32-byte secret>`
+   - `OWNER_API_KEY`: `<Secure Owner API key>`
+   - `GEMINI_MODEL`: `gemini-3.8-live`
+   - `GEMINI_API_VERSION`: `v1alpha`
+   - `GEMINI_VOICE_NAME`: `Aoede`
+5. Click **Create Web Service**.
+

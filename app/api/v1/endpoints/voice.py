@@ -16,7 +16,7 @@ from fastapi import (
     status,
 )
 
-from app.core.config import Settings, get_settings
+from app.core.config import Environment, Settings, get_settings
 from app.core.errors import VoiceAuthenticationError
 from app.engine.audio import AudioProcessor
 from app.engine.bridge import AudioStreamBridge
@@ -56,10 +56,40 @@ def create_voice_session(
     settings: Settings = Depends(get_active_settings),
     session_manager: VoiceSessionManager = Depends(get_active_session_manager),
 ) -> VoiceSessionResponse:
-    """Authenticate owner API key and provision an authorized voice session."""
-    # 1. Authenticate owner API key using constant-time comparison
-    if not x_api_key or not hmac.compare_digest(x_api_key, settings.OWNER_API_KEY.get_secret_value()):
-        logger.warning("Unauthorized voice session creation attempt from client: %s", req.client.host if req.client else "unknown")
+    """Authenticate owner API key or secure web session cookie and provision an authorized voice session."""
+    cookie_token = req.cookies.get("callmate_owner_session")
+    logger.info(
+        "create_voice_session debug: has_x_api_key=%s, cookies_keys=%s, has_cookie_token=%s, origin=%s, host=%s",
+        bool(x_api_key),
+        list(req.cookies.keys()),
+        bool(cookie_token),
+        req.headers.get("origin"),
+        req.headers.get("host"),
+    )
+    # 1. Authenticate via explicit X-API-Key header if provided and valid
+    authenticated = False
+    if x_api_key and hmac.compare_digest(x_api_key, settings.OWNER_API_KEY.get_secret_value()):
+        authenticated = True
+
+    # 2. Authenticate via HttpOnly owner session cookie if present and cryptographically valid
+    if not authenticated:
+        cookie_token = req.cookies.get("callmate_owner_session")
+        if cookie_token and session_manager.verify_owner_session_token(cookie_token):
+            authenticated = True
+
+    # 3. Development loopback convenience for local developer on 127.0.0.1 / ::1 / localhost
+    if not authenticated and settings.ENVIRONMENT == Environment.DEVELOPMENT:
+        client_host = req.client.host if req.client else ""
+        if client_host in ("127.0.0.1", "::1", "localhost", "testclient"):
+            authenticated = True
+
+    if not authenticated:
+        logger.warning(
+            "Unauthorized voice session creation attempt from client: %s (x_api_key=%s, has_cookie=%s)",
+            req.client.host if req.client else "unknown",
+            bool(x_api_key),
+            bool(req.cookies.get("callmate_owner_session")),
+        )
         raise VoiceAuthenticationError()
 
     # 2. Extract client identifier for rate limiting

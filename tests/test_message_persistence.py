@@ -114,3 +114,34 @@ def test_safe_logging_no_caller_pii(temp_storage: MessageRepository, caplog: pyt
         assert caller_phone not in record.message
         assert caller_name not in record.message
         assert secret_text not in record.message
+
+
+def test_list_and_delete_messages(temp_storage: MessageRepository) -> None:
+    """Verify that messages can be listed in descending order and safely deleted."""
+    session_id = str(uuid.uuid4())
+    res1 = temp_storage.save_message(
+        session_id=session_id,
+        caller_name="Caller One",
+        message="Message number 1",
+    )
+    time.sleep(0.01)
+    res2 = temp_storage.save_message(
+        session_id=session_id,
+        caller_name="Caller Two",
+        message="Message number 2",
+    )
+
+    messages = temp_storage.list_messages()
+    assert len(messages) == 2
+    # Verify descending sort order
+    assert messages[0]["message_id"] == res2["message_id"]
+    assert messages[1]["message_id"] == res1["message_id"]
+
+    # Test safe deletion
+    assert temp_storage.delete_message(res1["message_id"]) is True
+    assert temp_storage.get_message(res1["message_id"]) is None
+    assert len(temp_storage.list_messages()) == 1
+
+    # Test invalid / non-existent deletion
+    assert temp_storage.delete_message("msg_nonexistent00000000000000000000") is False
+    assert temp_storage.delete_message("../../invalid") is False

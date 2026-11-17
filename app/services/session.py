@@ -180,6 +180,47 @@ class VoiceSessionManager:
         """Fetch session metadata."""
         return self._sessions.get(session_id)
 
+    def create_owner_session_token(self) -> str:
+        """Create a cryptographically signed owner web session token for same-origin browser clients."""
+        timestamp = int(time.time())
+        nonce = secrets.token_hex(16)
+        payload = f"owner_web_session:{timestamp}:{nonce}".encode("utf-8")
+        signature = hmac.new(
+            self._settings.SECRET_KEY.get_secret_value().encode("utf-8"),
+            payload,
+            hashlib.sha256,
+        ).hexdigest()
+        return f"{timestamp}.{nonce}.{signature}"
+
+    def verify_owner_session_token(self, token_str: str) -> bool:
+        """Validate cryptographic signature and expiry of an owner web session token."""
+        if not token_str or not isinstance(token_str, str):
+            return False
+        parts = token_str.split(".")
+        if len(parts) != 3:
+            return False
+        timestamp_str, nonce, signature = parts
+        try:
+            timestamp = int(timestamp_str)
+        except ValueError:
+            return False
+
+        now = time.time()
+        # Clock skew protection (max 60 seconds into future)
+        if timestamp > now + 60:
+            return False
+        # 24-hour validity for browser dashboard session
+        if now > timestamp + (24 * 3600):
+            return False
+
+        expected_payload = f"owner_web_session:{timestamp}:{nonce}".encode("utf-8")
+        expected_sig = hmac.new(
+            self._settings.SECRET_KEY.get_secret_value().encode("utf-8"),
+            expected_payload,
+            hashlib.sha256,
+        ).hexdigest()
+        return hmac.compare_digest(signature, expected_sig)
+
 
 @lru_cache
 def get_session_manager() -> VoiceSessionManager:

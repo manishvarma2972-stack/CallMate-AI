@@ -19,7 +19,7 @@ class VoiceSessionResponse(BaseModel):
     expires_at: int = Field(..., description="Unix epoch timestamp when token expires")
     ws_url: str = Field(..., description="WebSocket connection URL for audio streaming")
     owner_name: str = Field(..., description="Configured owner display name")
-    receptionist_name: str = Field(..., description="Display name of the AI receptionist")
+    receptionist_name: str = Field(..., description="Display name of the AI caller assistant")
 
 
 class TakeMessageSchema(BaseModel):

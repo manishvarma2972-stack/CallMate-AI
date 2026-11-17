@@ -6,9 +6,12 @@ centralized exception handlers, and modular API routing.
 
 from contextlib import asynccontextmanager
 import logging
+from pathlib import Path
 from typing import AsyncGenerator, Optional
-from fastapi import FastAPI, status
+from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.endpoints.health import check_health
 from app.api.v1.router import api_router
@@ -18,6 +21,7 @@ from app.core.logging import setup_logging
 from app.core.middleware import RequestCorrelationMiddleware
 from app.schemas.health import SystemHealthResponse
 from app.services.health import HealthService
+from app.services.session import VoiceSessionManager
 
 logger = logging.getLogger("app.main")
 
@@ -49,7 +53,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         title=active_settings.APP_NAME,
         version=active_settings.APP_VERSION,
         description=(
-            "CallMate AI is a production-quality personal voice receptionist backend "
+            "CallMate AI is a production-quality personal AI caller assistant backend "
             "designed to handle incoming phone calls, forward inquiries, and interact "
             "with callers naturally in English and Telugu using real-time voice AI."
         ),
@@ -89,6 +93,56 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
 
     # Mount Versioned API Routes (/api/v1)
     app.include_router(api_router, prefix=active_settings.API_V1_PREFIX)
+
+    # Mount Web Client Static Assets & Direct Web Routes
+    static_dir = Path(__file__).parent / "static"
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+        @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
+        async def serve_index(request: Request) -> Response:
+            index_path = static_dir / "index.html"
+            if not index_path.exists():
+                return Response(status_code=status.HTTP_404_NOT_FOUND)
+            response = FileResponse(str(index_path))
+            # Securely provision HttpOnly owner session cookie for same-origin browser client
+            if not hasattr(request.app.state, "session_manager"):
+                request.app.state.session_manager = VoiceSessionManager(settings=request.app.state.settings)
+            session_mgr: VoiceSessionManager = request.app.state.session_manager
+            existing_cookie = request.cookies.get("callmate_owner_session")
+            if not existing_cookie or not session_mgr.verify_owner_session_token(existing_cookie):
+                owner_token = session_mgr.create_owner_session_token()
+                response.set_cookie(
+                    key="callmate_owner_session",
+                    value=owner_token,
+                    httponly=True,
+                    samesite="lax",
+                    max_age=86400,
+                    path="/",
+                )
+            return response
+
+    # Development Verification Console (/dev/audio-test)
+    scripts_test_html = Path(__file__).parent.parent / "scripts" / "test_audio_browser.html"
+    if scripts_test_html.exists():
+        @app.api_route("/dev/audio-test", methods=["GET", "HEAD"], include_in_schema=False)
+        async def serve_dev_test(request: Request) -> Response:
+            response = FileResponse(str(scripts_test_html))
+            if not hasattr(request.app.state, "session_manager"):
+                request.app.state.session_manager = VoiceSessionManager(settings=request.app.state.settings)
+            session_mgr: VoiceSessionManager = request.app.state.session_manager
+            existing_cookie = request.cookies.get("callmate_owner_session")
+            if not existing_cookie or not session_mgr.verify_owner_session_token(existing_cookie):
+                owner_token = session_mgr.create_owner_session_token()
+                response.set_cookie(
+                    key="callmate_owner_session",
+                    value=owner_token,
+                    httponly=True,
+                    samesite="lax",
+                    max_age=86400,
+                    path="/",
+                )
+            return response
 
     return app
 

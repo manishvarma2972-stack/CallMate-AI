@@ -91,6 +91,104 @@ def test_session_creation_success(sec_client: TestClient) -> None:
     assert data["receptionist_name"] == "CallMate"
 
 
+def test_session_creation_via_cookie_success(sec_client: TestClient, security_app: FastAPI) -> None:
+    """Verify same-origin browser client can provision session via signed HttpOnly cookie."""
+    # 1. Fetch index to receive HttpOnly owner session cookie
+    index_res = sec_client.get("/")
+    assert index_res.status_code == 200
+    assert "callmate_owner_session" in index_res.cookies
+
+    # 2. Call POST /api/v1/voice/sessions without X-API-Key (cookie is passed automatically)
+    resp = sec_client.post(
+        "/api/v1/voice/sessions",
+        json={"language_hint": "en"},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert "session_id" in data
+    assert "token" in data
+    assert data["owner_name"] == "Verified Owner"
+
+
+def test_session_creation_via_tampered_cookie_rejected(sec_client: TestClient) -> None:
+    """Verify that a forged or tampered session cookie is rejected with 401 Unauthorized."""
+    sec_client.cookies.set("callmate_owner_session", "123456789.badnonce.badsig")
+    resp = sec_client.post(
+        "/api/v1/voice/sessions",
+        json={"language_hint": "en"},
+    )
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "UNAUTHORIZED"
+
+
+def test_session_creation_expired_cookie_rejected(sec_client: TestClient, configured_settings: Settings) -> None:
+    """Verify that an expired session cookie (>24 hours) is rejected with 401 Unauthorized."""
+    import hashlib
+    import hmac
+    import secrets
+    import time
+    # Create expired cookie (timestamp 25 hours ago)
+    old_timestamp = int(time.time()) - (25 * 3600)
+    nonce = secrets.token_hex(16)
+    payload = f"owner_web_session:{old_timestamp}:{nonce}".encode("utf-8")
+    sig = hmac.new(
+        configured_settings.SECRET_KEY.get_secret_value().encode("utf-8"),
+        payload,
+        hashlib.sha256,
+    ).hexdigest()
+    expired_cookie = f"{old_timestamp}.{nonce}.{sig}"
+
+    sec_client.cookies.set("callmate_owner_session", expired_cookie)
+    resp = sec_client.post("/api/v1/voice/sessions", json={"language_hint": "en"})
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "UNAUTHORIZED"
+
+
+def test_session_creation_incorrect_signing_key_rejected(sec_client: TestClient) -> None:
+    """Verify that a cookie signed with an incorrect secret key is rejected with 401."""
+    import hashlib
+    import hmac
+    import secrets
+    import time
+    timestamp = int(time.time())
+    nonce = secrets.token_hex(16)
+    payload = f"owner_web_session:{timestamp}:{nonce}".encode("utf-8")
+    # Signed with wrong foreign key
+    wrong_sig = hmac.new(
+        b"completely-wrong-foreign-secret-key-for-test!",
+        payload,
+        hashlib.sha256,
+    ).hexdigest()
+    invalid_key_cookie = f"{timestamp}.{nonce}.{wrong_sig}"
+
+    sec_client.cookies.set("callmate_owner_session", invalid_key_cookie)
+    resp = sec_client.post("/api/v1/voice/sessions", json={"language_hint": "en"})
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "UNAUTHORIZED"
+
+
+def test_auth_session_endpoints_lifecycle(sec_client: TestClient) -> None:
+    """Verify GET/POST/DELETE on /api/v1/auth/session for explicit owner authentication."""
+    # 1. Invalid login attempt
+    bad_login = sec_client.post("/api/v1/auth/session", json={"api_key": "wrong-owner-key"})
+    assert bad_login.status_code == 401
+
+    # 2. Valid login attempt
+    good_login = sec_client.post("/api/v1/auth/session", json={"api_key": "valid-owner-test-key"})
+    assert good_login.status_code == 200
+    assert good_login.json()["authenticated"] is True
+    assert "callmate_owner_session" in sec_client.cookies
+
+    # 3. GET /api/v1/auth/session confirms authenticated status
+    status_res = sec_client.get("/api/v1/auth/session")
+    assert status_res.status_code == 200
+    assert status_res.json()["authenticated"] is True
+
+    # 4. DELETE /api/v1/auth/session logs out
+    del_res = sec_client.delete("/api/v1/auth/session")
+    assert del_res.status_code == 204
+
+
 @pytest.mark.asyncio
 async def test_token_replay_protection(configured_settings: Settings) -> None:
     """Verify that a single-use token cannot be consumed twice."""

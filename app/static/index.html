@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CallMate.ai — Your AI. Your Calls. Your Control.</title>
+  <meta name="description" content="Next-generation bilingual AI caller assistant for Manish Varma handling incoming phone calls in English and Telugu.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Telugu:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css?v=2.1">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📞</text></svg>">
+</head>
+<body>
+  <div class="app-container">
+    <div class="ambient-glow"></div>
+    <div class="ambient-glow-2"></div>
+
+    <!-- Persistent Responsive Sidebar -->
+    <aside class="app-sidebar" id="appSidebar">
+      <div class="sidebar-header">
+        <a href="#" class="brand-logo" onclick="appState.navigateTo('overview'); return false;">
+          <div class="brand-icon-wrapper">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+              <path d="M14 2c2 1 4 3 5 5"></path>
+              <path d="M18 2c2 2 3 5 3 9"></path>
+            </svg>
+          </div>
+          <span>CallMate<span style="color:var(--primary);">.ai</span></span>
+          <span class="brand-tag">PRO</span>
+        </a>
+      </div>
+
+      <nav class="sidebar-nav-container">
+        <div class="nav-section-label">Command Center</div>
+        
+        <a class="nav-item active" data-screen="overview" onclick="appState.navigateTo('overview')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+          <span>Overview</span>
+        </a>
+
+        <a class="nav-item" data-screen="live-calls" onclick="appState.navigateTo('live-calls')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+          <span>Live Calls & Studio</span>
+          <span class="nav-badge live-pulse" id="sidebarLiveBadge">LIVE</span>
+        </a>
+
+        <a class="nav-item" data-screen="call-history" onclick="appState.navigateTo('call-history')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>Call History</span>
+          <span class="nav-badge" id="sidebarCallCountBadge">0</span>
+        </a>
+
+        <div class="nav-section-label">AI Intelligence</div>
+
+        <a class="nav-item" data-screen="ai-assistant" onclick="appState.navigateTo('ai-assistant')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+          <span>AI Assistant</span>
+        </a>
+
+        <a class="nav-item" data-screen="knowledge-base" onclick="appState.navigateTo('knowledge-base')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/></svg>
+          <span>Knowledge Base</span>
+        </a>
+
+        <a class="nav-item" data-screen="contacts" onclick="appState.navigateTo('contacts')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>Contacts</span>
+        </a>
+
+        <div class="nav-section-label">Performance & System</div>
+
+        <a class="nav-item" data-screen="analytics" onclick="appState.navigateTo('analytics')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          <span>Analytics</span>
+        </a>
+
+        <a class="nav-item" data-screen="settings" onclick="appState.navigateTo('settings')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span>Settings</span>
+        </a>
+      </nav>
+
+      <!-- Sidebar Bottom Profile & Controls -->
+      <div class="sidebar-footer">
+        <div class="user-profile-pill" onclick="appState.navigateTo('settings')">
+          <div class="user-avatar" id="sidebarUserAvatar">MV</div>
+          <div class="user-meta">
+            <div class="user-name" id="sidebarOwnerName">Manish Varma</div>
+            <div class="user-status-text">
+              <span class="status-dot-sm"></span>
+              <span>AI Caller Assistant Active</span>
+            </div>
+          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+
+        <div class="footer-action-row">
+          <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle Dark/Light Theme" onclick="appUI.toggleTheme()">
+            <svg id="themeIconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+            <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          </button>
+
+          <button class="help-btn" title="Onboarding Setup Guide" onclick="onboardingWizard.openWizard()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </button>
+
+          <button class="help-btn" title="Keyboard Shortcuts (?)" onclick="appUI.openShortcutsModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Application Viewport -->
+    <main class="main-viewport">
+      <!-- Topbar Header -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="mobile-menu-toggle" onclick="appUI.toggleSidebar()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+          </button>
+          <div class="page-title-group">
+            <h1 class="page-title" id="pageTitle">Overview</h1>
+            <span class="page-subtitle" id="pageSubtitle">Live AI Caller Assistant Dashboard & Activity</span>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <!-- Global Search -->
+          <div class="search-wrapper">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" class="search-input" id="globalSearchInput" placeholder="Search calls, contacts..." oninput="appUI.handleGlobalSearch(this.value)">
+            <span class="search-shortcut">⌘K</span>
+          </div>
+
+          <!-- Real Backend Health Status Indicator -->
+          <div class="system-status-pill" id="systemHealthPill" title="Real-time backend status">
+            <span class="status-indicator-dot" id="systemHealthDot"></span>
+            <span id="systemHealthText">Connecting...</span>
+          </div>
+
+          <!-- Mode Badge -->
+          <div class="demo-mode-badge" id="demoModeBadge" title="Demonstration mode active">
+            <span>DEMO MODE</span>
+          </div>
+
+          <!-- Notifications Bell -->
+          <button class="icon-button" id="notifBellBtn" title="Recorded Messages & Alerts" onclick="appUI.toggleNotificationsPopover()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            <span class="notification-count-badge" id="notifBadge">0</span>
+          </button>
+
+          <!-- Quick Test Assistant Action -->
+          <button class="btn btn-primary btn-sm" onclick="appState.navigateTo('live-calls')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span>Live Voice Studio</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Screen Container Viewports -->
+      <div class="screen-viewport" id="screenViewport">
+        <!-- SCREEN 1: OVERVIEW -->
+        <section id="screen-overview" class="screen-container active"></section>
+
+        <!-- SCREEN 2: LIVE CALLS & STUDIO -->
+        <section id="screen-live-calls" class="screen-container"></section>
+
+        <!-- SCREEN 3: CALL HISTORY -->
+        <section id="screen-call-history" class="screen-container"></section>
+
+        <!-- SCREEN 4: AI ASSISTANT CONFIG -->
+        <section id="screen-ai-assistant" class="screen-container"></section>
+
+        <!-- SCREEN 5: KNOWLEDGE BASE -->
+        <section id="screen-knowledge-base" class="screen-container"></section>
+
+        <!-- SCREEN 6: CONTACTS -->
+        <section id="screen-contacts" class="screen-container"></section>
+
+        <!-- SCREEN 7: ANALYTICS -->
+        <section id="screen-analytics" class="screen-container"></section>
+
+        <!-- SCREEN 8: SETTINGS -->
+        <section id="screen-settings" class="screen-container"></section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Call Detail Slide-Over Drawer -->
+  <div class="drawer-backdrop" id="drawerBackdrop" onclick="appUI.closeCallDrawer()"></div>
+  <aside class="slide-drawer" id="callDetailDrawer">
+    <div class="drawer-header">
+      <div class="card-title-group">
+        <div class="card-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        </div>
+        <div>
+          <h3 class="card-title" id="drawerCallerName">Caller Details</h3>
+          <span class="card-subtitle" id="drawerCallMeta">Session details</span>
+        </div>
+      </div>
+      <button class="icon-button" onclick="appUI.closeCallDrawer()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="drawer-body" id="drawerBody">
+      <!-- Injected by appUI.renderCallDetail -->
+    </div>
+    <div class="drawer-footer" id="drawerFooter">
+      <button class="btn btn-secondary btn-sm" onclick="appUI.closeCallDrawer()">Close</button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-outline btn-sm" id="btnDrawerCopyMessage" onclick="appUI.copyDrawerMessage()">Copy Summary</button>
+        <button class="btn btn-primary btn-sm" id="btnDrawerCallBack" onclick="appUI.initiateCallBack()">Call Back</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Onboarding Wizard Modal -->
+  <div class="modal-backdrop" id="wizardModalBackdrop">
+    <div class="modal-dialog" style="max-width: 680px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="brand-icon-wrapper" style="width:28px; height:28px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </div>
+          <div>
+            <h3 class="card-title">Setup Your AI Caller Assistant</h3>
+            <span class="card-subtitle">8-Step Guided Launch Setup</span>
+          </div>
+        </div>
+        <button class="icon-button" onclick="onboardingWizard.closeWizard()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="wizardBody">
+        <!-- Wizard step content injected by onboardingWizard -->
+      </div>
+      <div class="modal-footer" id="wizardFooter">
+        <button class="btn btn-secondary" id="wizardBtnPrev" onclick="onboardingWizard.prevStep()">Back</button>
+        <button class="btn btn-primary" id="wizardBtnNext" onclick="onboardingWizard.nextStep()">Next Step</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reusable Modal (for Contacts, Knowledge Base, Shortcuts) -->
+  <div class="modal-backdrop" id="genericModalBackdrop">
+    <div class="modal-dialog" id="genericModalDialog">
+      <div class="modal-header">
+        <h3 class="card-title" id="genericModalTitle">Modal Title</h3>
+        <button class="icon-button" onclick="appUI.closeGenericModal()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="genericModalBody"></div>
+      <div class="modal-footer" id="genericModalFooter"></div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Floating Incoming Call Notification Container (Section 6) -->
+  <div class="incoming-call-container" id="incomingCallContainer"></div>
+
+  <!-- Application Logic Modules -->
+  <script src="/static/js/state.js?v=2.3"></script>
+  <script src="/static/js/api.js?v=2.3"></script>
+  <script src="/static/js/audio-engine.js?v=2.3"></script>
+  <script src="/static/js/voice-orb.js?v=2.3"></script>
+  <script src="/static/js/waveform.js?v=2.3"></script>
+  <script src="/static/js/ui.js?v=2.3"></script>
+  <script src="/static/js/screens/overview.js?v=2.3"></script>
+  <script src="/static/js/screens/live-calls.js?v=2.3"></script>
+  <script src="/static/js/screens/call-history.js?v=2.3"></script>
+  <script src="/static/js/screens/ai-assistant.js?v=2.3"></script>
+  <script src="/static/js/screens/knowledge-base.js?v=2.3"></script>
+  <script src="/static/js/screens/contacts.js?v=2.3"></script>
+  <script src="/static/js/screens/analytics.js?v=2.3"></script>
+  <script src="/static/js/screens/settings.js?v=2.3"></script>
+  <script src="/static/js/onboarding.js?v=2.3"></script>
+  <script src="/static/js/main.js?v=2.3"></script>
+</body>
+</html>
